@@ -118,7 +118,7 @@ class WebSocketController {
 
   async onMqttMessage(msg_: unknown) {
     const msg = msg_ as MqttMessageDTO;
-    this.websocket.send(`<div id=chat_room hx-swap-oob="beforeend"> <li>${msg.username}: ${msg.message}</li> </div>`);
+    this.websocket.send(`<div id=chat_room hx-swap-oob="afterbegin"> <li>${msg.username}: ${msg.message}</li> </div>`);
   }
 
   async onError(ev: ErrorEvent) {

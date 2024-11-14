@@ -3,30 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HTMX global chat</title>
+    <title>HTMX Global Chat</title>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.13"></script>
+    <link href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   </head>
 
-  <body>
-    <h1>Global chat</h1>
-    <p>Using CloudFlare edge functions and distributed MQTT cluster.</p>
+  <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+    <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-md">
+      <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">Global Chat</h1>
+      <p class="text-gray-600 text-center mb-6">Using CloudFlare edge functions and distributed MQTT cluster.</p>
 
-    <div hx-ext="ws" ws-connect="/ws">
-      <ul id="chat_room" hx-swap-oob="beforeend"></ul>
-      <form id="form" ws-send>
-        <input name="message" />
-      </form>
+      <div hx-ext="ws" ws-connect="/ws" class="flex flex-col">
+        <ul id="chat_room" class="overflow-y-auto h-64 border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50" hx-swap-oob="afterbegin"></ul>
+        <form id="form" _="on submit reset() me" ws-send class="flex" hx-on::after-request="this.reset()">
+          <input name="message" class="flex-1 border border-gray-300 rounded-l-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your message..." />
+          <button type="submit" class="bg-blue-500 text-white rounded-r-lg px-4 hover:bg-blue-600 transition duration-200">Send</button>
+        </form>
+      </div>
     </div>
-    <!-- <div>
-    <input id="chatInput" type="text">
-    <button _="on click send message(message: value of previous <input />) to chatSocket">send</button>
-    <button _="on click call alert(value of previous <input/>)">send</button>
-  </div>
-  <div id="chatOutput">
-    <ul>
-
-    </ul>
-  </div> -->
   </body>
 </html>
