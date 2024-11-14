@@ -10,3 +10,7 @@ insert_final_newline = true
 
 [*.yml]
 indent_style = space
+
+[*.{ts,html}]
+indent_size = 2
+indent_style = space

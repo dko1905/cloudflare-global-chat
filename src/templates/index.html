@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTMX global chat</title>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
+  </head>
+
+  <body>
+    <h1>Global chat</h1>
+    <p>Using CloudFlare edge functions and distributed MQTT cluster.</p>
+
+    <div hx-ext="ws" ws-connect="/ws">
+      <ul id="chat_room" hx-swap-oob="beforeend"></ul>
+      <form id="form" ws-send>
+        <input name="message" />
+      </form>
+    </div>
+    <!-- <div>
+    <input id="chatInput" type="text">
+    <button _="on click send message(message: value of previous <input />) to chatSocket">send</button>
+    <button _="on click call alert(value of previous <input/>)">send</button>
+  </div>
+  <div id="chatOutput">
+    <ul>
+
+    </ul>
+  </div> -->
+  </body>
+</html>

@@ -1,3 +1,8 @@
+import { nanoid } from 'nanoid';
+import indexTmpl from './templates/index.html';
+import { IPublishPacket } from 'mqtt';
+import mqtt from 'mqtt';
+
 /**
  * Welcome to Cloudflare Workers! This is your first worker.
  *
@@ -11,8 +16,184 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+class AppController {
+  constructor(private request: Request, private env: Env, private ctx: ExecutionContext) {}
+
+  async getRoot(): Promise<Response> {
+    return new Response(indexTmpl, {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    });
+  }
+
+  async get101(): Promise<Response> {
+    if (this.request.headers.get('Upgrade') !== 'websocket') return new Response('400 - Expected websocket', { status: 400 });
+
+    const [client, server] = Object.values(new WebSocketPair());
+    await new WebSocketController(server).handle();
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
+  }
+
+  async get404(): Promise<Response> {
+    return new Response('404 - Not Found', { status: 404 });
+  }
+
+  async get405(): Promise<Response> {
+    return new Response('405 - Method Not Allowed', { status: 405 });
+  }
+
+  handle(): Promise<Response> {
+    const url = new URL(this.request.url);
+
+    switch (url.pathname) {
+      case '':
+      case '/':
+        if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
+        return this.getRoot();
+      case '/ws':
+        return this.get101();
+      default:
+        if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
+        return this.get404();
+    }
+  }
+}
+
+interface ClientMessageDTO {
+  message?: string;
+}
+
+interface MqttMessageDTO {
+  username: string;
+  message: string;
+}
+
+class WebSocketController {
+  private mqttService: MqttService;
+  private mqttCallbackCleanup!: () => void;
+  constructor(private websocket: WebSocket) {
+    this.mqttService = MqttService.getInstance();
+  }
+
+  async handle() {
+    // "open"-event is not fired, no listener defined.
+    this.websocket.addEventListener('error', this.onError.bind(this));
+    this.websocket.addEventListener('close', this.onClose.bind(this));
+    this.websocket.addEventListener('message', this.onMessage.bind(this));
+    this.mqttCallbackCleanup = this.mqttService.addCallback(this.onMqttMessage.bind(this));
+
+    this.websocket.accept();
+  }
+
+  async onMessage(ev: MessageEvent) {
+    if (typeof ev.data !== 'string') {
+      console.debug('received invalid binary packet, closing connection');
+      this.websocket.close();
+      return;
+    }
+
+    let data: ClientMessageDTO | null = null;
+
+    try {
+      data = JSON.parse(ev.data);
+      if (data?.message == null) throw Error('invalid json');
+    } catch (e) {
+      console.warn('failed to parse WebSocket msg, closing: %s', e);
+      this.websocket.close();
+      return;
+    }
+
+    console.debug('onMessage: %s', data);
+    const mqttMsg = {
+      username: 'default',
+      message: data.message,
+    } satisfies MqttMessageDTO;
+    await this.mqttService.sendMessage(mqttMsg);
+  }
+
+  async onMqttMessage(msg_: unknown) {
+    const msg = msg_ as MqttMessageDTO;
+    this.websocket.send(`<div id=chat_room hx-swap-oob="beforeend"> <li>${msg.username}: ${msg.message}</li> </div>`);
+  }
+
+  async onError(ev: ErrorEvent) {
+    console.debug('onError: %O', ev);
+  }
+
+  async onClose(ev: CloseEvent) {
+    console.debug('WebSocket client disconnected');
+    this.mqttCallbackCleanup();
+  }
+}
+
+class MqttService {
+  private static DEFAULT_CHAN = 'chat/default';
+  private static instance: MqttService | null = null;
+  private client: mqtt.MqttClient;
+  private utf8Decoder = new TextDecoder('UTF-8', { ignoreBOM: true, fatal: true });
+  private callbacks: Map<string, (msg: unknown) => void> = new Map();
+
+  constructor() {
+    console.log('Connecting to mqtt');
+    this.client = mqtt.connect('wss://test.mosquitto.org:8081/');
+    this.client.on('connect', this.onConnect.bind(this));
+    this.client.on('disconnect', this.onDisconnect.bind(this));
+    this.client.on('message', this.onMessage.bind(this));
+  }
+
+  static getInstance() {
+    // if (this.instance === null) {
+    //   this.instance = new MqttService();
+    // }
+    return new MqttService();
+  }
+
+  private onConnect() {
+    console.log('Connected to MQTT server');
+    this.client.subscribe(MqttService.DEFAULT_CHAN, (err) => {
+      if (err != null) console.error("Failed to subscribe to 'chat': %s", err.message);
+    });
+  }
+
+  private onDisconnect() {
+    console.warn('Disconnected from mqtt');
+  }
+
+  private onMessage(topic: string, payload: Buffer, packet: IPublishPacket) {
+    const msg = this.utf8Decoder.decode(payload);
+    const msgData = JSON.parse(msg) as unknown;
+
+    switch (topic) {
+      case MqttService.DEFAULT_CHAN:
+        this.callbacks.forEach((v) => v(msgData));
+        return;
+      default:
+        console.warn("Unknown msg from '%s'", topic);
+    }
+  }
+
+  addCallback(l: (msg: unknown) => void) {
+    const id = nanoid();
+    this.callbacks.set(id, l);
+
+    // Return cleanup function
+    return () => {
+      this.callbacks.delete(id);
+    };
+  }
+
+  async sendMessage(msg: any) {
+    await this.client.publishAsync(MqttService.DEFAULT_CHAN, JSON.stringify(msg));
+  }
+}
+
 export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
-	},
+  async fetch(request, env, ctx): Promise<Response> {
+    return new AppController(request, env, ctx).handle();
+  },
 } satisfies ExportedHandler<Env>;
