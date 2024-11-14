@@ -15,7 +15,7 @@
         document.addEventListener('htmx:wsOpen', (ev) => {
           intervalHandle = setInterval(() => {
             ev.detail.socketWrapper.send(JSON.stringify({ type: 'ping' }));
-          }, 5000);
+          }, 10000);
         });
         document.addEventListener('htmx:wsClose', () => {
           if (intervalHandle != null) {
