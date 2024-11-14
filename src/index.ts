@@ -74,7 +74,12 @@ class AppController {
 }
 
 interface ClientMessageDTO {
+  type: 'message';
   message?: string;
+}
+
+interface ClientPingDTO {
+  type: 'ping';
 }
 
 interface MqttMessageDTO {
@@ -106,11 +111,17 @@ class WebSocketController {
       return;
     }
 
-    let data: ClientMessageDTO | null = null;
+    let data: ClientMessageDTO | ClientPingDTO | null = null;
 
     try {
       data = JSON.parse(ev.data);
-      if (data?.message == null) throw Error('invalid json');
+
+      if (data?.type == 'ping') {
+        this.websocket.send(''); // Pong
+        return;
+      } else if (data?.type !== 'message') {
+        throw Error('invalid json');
+      }
     } catch (e) {
       console.warn('failed to parse WebSocket msg, closing: %s', e);
       this.websocket.close();
