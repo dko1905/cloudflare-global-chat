@@ -1,14 +1,15 @@
 import { nanoid } from 'nanoid';
-import indexTmpl from './templates/index.html';
 import { IPublishPacket } from 'mqtt';
 import mqtt from 'mqtt';
+import indexTmpl from './templates/index.html';
+import { SHA1 } from 'crypto-js';
+import Base64 from 'crypto-js/enc-base64';
 
 /**
  * Welcome to Cloudflare Workers! This is your first worker.
  *
  * - Run `npm run dev` in your terminal to start a development server
  * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
  *
  * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
  * `Env` object can be regenerated with `npm run cf-typegen`.
@@ -27,11 +28,19 @@ class AppController {
     });
   }
 
-  async get101(): Promise<Response> {
+  async getWs(): Promise<Response> {
     if (this.request.headers.get('Upgrade') !== 'websocket') return new Response('400 - Expected websocket', { status: 400 });
 
+    try {
+      const hash = SHA1(this.request.headers.get('CF-Connecting-IP')!);
+      this.env.username = Base64.stringify(hash).slice(1, 8);
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+
     const [client, server] = Object.values(new WebSocketPair());
-    await new WebSocketController(server).handle();
+    await new WebSocketController(this.env, this.ctx, server).handle();
 
     return new Response(null, {
       status: 101,
@@ -56,7 +65,7 @@ class AppController {
         if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
         return this.getRoot();
       case '/ws':
-        return this.get101();
+        return this.getWs();
       default:
         if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
         return this.get404();
@@ -76,8 +85,8 @@ interface MqttMessageDTO {
 class WebSocketController {
   private mqttService: MqttService;
   private mqttCallbackCleanup!: () => void;
-  constructor(private websocket: WebSocket) {
-    this.mqttService = MqttService.getInstance();
+  constructor(private env: Env, private ctx: ExecutionContext, private websocket: WebSocket) {
+    this.mqttService = new MqttService(env, ctx);
   }
 
   async handle() {
@@ -110,7 +119,7 @@ class WebSocketController {
 
     console.debug('onMessage: %s', data);
     const mqttMsg = {
-      username: 'default',
+      username: this.env.username || 'default',
       message: data.message,
     } satisfies MqttMessageDTO;
     await this.mqttService.sendMessage(mqttMsg);
@@ -138,30 +147,32 @@ class MqttService {
   private utf8Decoder = new TextDecoder('UTF-8', { ignoreBOM: true, fatal: true });
   private callbacks: Map<string, (msg: unknown) => void> = new Map();
 
-  constructor() {
-    console.log('Connecting to mqtt');
-    this.client = mqtt.connect('wss://test.mosquitto.org:8081/');
-    this.client.on('connect', this.onConnect.bind(this));
-    this.client.on('disconnect', this.onDisconnect.bind(this));
-    this.client.on('message', this.onMessage.bind(this));
-  }
-
-  static getInstance() {
-    // if (this.instance === null) {
-    //   this.instance = new MqttService();
-    // }
-    return new MqttService();
+  constructor(private env: Env, private ctx: ExecutionContext) {
+    // Try-catch because of a bug in Cloudflare workers
+    try {
+      console.debug('Connecting to MQTT...');
+      this.client = mqtt.connect(env.MQTT_URL, {
+        username: env.MQTT_USER,
+        password: env.MQTT_PASS,
+      });
+      this.client.on('connect', this.onConnect.bind(this));
+      this.client.on('disconnect', this.onDisconnect.bind(this));
+      this.client.on('message', this.onMessage.bind(this));
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   }
 
   private onConnect() {
-    console.log('Connected to MQTT server');
+    console.debug('Connected to MQTT');
     this.client.subscribe(MqttService.DEFAULT_CHAN, (err) => {
       if (err != null) console.error("Failed to subscribe to 'chat': %s", err.message);
     });
   }
 
   private onDisconnect() {
-    console.warn('Disconnected from mqtt');
+    console.debug('Disconnected from MQTT');
   }
 
   private onMessage(topic: string, payload: Buffer, packet: IPublishPacket) {
