@@ -64,19 +64,29 @@ class AppController {
   }
 
   async serveFile(data: ArrayBuffer, mime: string): Promise<Response> {
+    const oneWeekInSeconds = 7 * 24 * 60 * 60; // 1 week in seconds
+    const expirationDate = new Date(Date.now() + oneWeekInSeconds * 1000).toUTCString();
+
     return new Response(data, {
       status: 200,
       headers: {
         'Content-Type': mime,
+        'Cache-Control': `public, max-age=${oneWeekInSeconds}`,
+        Expires: expirationDate,
       },
     });
   }
 
   async serveJson(data: string, mime: string): Promise<Response> {
+    const oneWeekInSeconds = 7 * 24 * 60 * 60; // 1 week in seconds
+    const expirationDate = new Date(Date.now() + oneWeekInSeconds * 1000).toUTCString();
+
     return new Response(data, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${oneWeekInSeconds}`,
+        Expires: expirationDate,
       },
     });
   }
