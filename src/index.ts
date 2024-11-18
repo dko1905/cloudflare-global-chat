@@ -5,6 +5,13 @@ import indexTmpl from './templates/index.html';
 import { SHA1 } from 'crypto-js';
 import Base64 from 'crypto-js/enc-base64';
 
+/* Static assets */
+import androidChrome192x from './static/android-chrome-192x192.png';
+import androidChrome512x from './static/android-chrome-512x512.png';
+import favicon from './static/favicon.ico';
+import manifestJson from './static/manifest.json';
+const manifest = JSON.stringify(manifestJson);
+
 /**
  * Welcome to Cloudflare Workers! This is your first worker.
  *
@@ -56,6 +63,24 @@ class AppController {
     return new Response('405 - Method Not Allowed', { status: 405 });
   }
 
+  async serveFile(data: ArrayBuffer, mime: string): Promise<Response> {
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': mime,
+      },
+    });
+  }
+
+  async serveJson(data: string, mime: string): Promise<Response> {
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
   handle(): Promise<Response> {
     const url = new URL(this.request.url);
 
@@ -66,6 +91,14 @@ class AppController {
         return this.getRoot();
       case '/ws':
         return this.getWs();
+      case '/manifest.json':
+        return this.serveJson(manifest, 'application/json');
+      case '/android-chrome-192x192.png':
+        return this.serveFile(androidChrome192x, 'image/png');
+      case '/android-chrome-512x512.png':
+        return this.serveFile(androidChrome512x, 'image/png');
+      case '/favicon.ico':
+        return this.serveFile(favicon, 'image/x-icon');
       default:
         if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
         return this.get404();
@@ -131,7 +164,7 @@ class WebSocketController {
     console.debug('onMessage: %s', data);
     const mqttMsg = {
       username: this.env.username || 'default',
-      message: data.message,
+      message: data.message!,
     } satisfies MqttMessageDTO;
     await this.mqttService.sendMessage(mqttMsg);
   }
