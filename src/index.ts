@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import { IPublishPacket } from 'mqtt';
 import mqtt from 'mqtt';
 import indexTmpl from './templates/index.html';
-import { SHA1 } from 'crypto-js';
+import Sha1 from 'crypto-js/sha1';
 import Base64 from 'crypto-js/enc-base64';
 
 /* Static assets */
@@ -39,7 +39,7 @@ class AppController {
     if (this.request.headers.get('Upgrade') !== 'websocket') return new Response('400 - Expected websocket', { status: 400 });
 
     try {
-      const hash = SHA1(this.request.headers.get('CF-Connecting-IP')!);
+      const hash = Sha1(this.request.headers.get('CF-Connecting-IP')!);
       this.env.username = Base64.stringify(hash).slice(1, 8);
     } catch (e) {
       console.error(e);
@@ -186,7 +186,6 @@ class WebSocketController {
 
 class MqttService {
   private static DEFAULT_CHAN = 'chat/default';
-  private static instance: MqttService | null = null;
   private client: mqtt.MqttClient;
   private utf8Decoder = new TextDecoder('UTF-8', { ignoreBOM: true, fatal: true });
   private callbacks: Map<string, (msg: unknown) => void> = new Map();
