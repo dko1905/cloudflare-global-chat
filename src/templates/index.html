@@ -16,6 +16,18 @@
     <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-md">
       <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">Global Chat</h1>
       <p class="text-gray-600 text-center mb-6">Built using a CloudFlare edge function and a distributed MQTT cluster.</p>
+      <div class="text-gray-800">
+        <p>Client info:</p>
+        <pre>
+{{ clientInfo }}
+        </pre>
+      </div>
+      <div class="text-gray-800 mb-6">
+        <p>Server/Edge info:</p>
+        <pre>
+{{ serverInfo }}
+        </pre>
+      </div>
 
       <div hx-ext="ws" ws-connect="/ws" class="flex flex-col">
         <a class="hidden" ws-send hx-trigger="every 35s" hx-vals='{ "type": "ping" }'></a>

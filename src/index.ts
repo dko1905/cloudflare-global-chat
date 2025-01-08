@@ -4,6 +4,7 @@ import mqtt from 'mqtt';
 import indexTmpl from './templates/index.html';
 import Sha1 from 'crypto-js/sha1';
 import Base64 from 'crypto-js/enc-base64';
+import Mustache from 'mustache';
 
 /* Static assets */
 import androidChrome192x from './static/android-chrome-192x192.png';
@@ -28,7 +29,32 @@ class AppController {
   constructor(private request: Request, private env: Env, private ctx: ExecutionContext) {}
 
   async getRoot(): Promise<Response> {
-    return new Response(indexTmpl, {
+    const clientInfo = {
+      organization: this.request.cf?.asOrganization,
+      city: this.request.cf?.city,
+      country: this.request.cf?.country,
+      postalCode: this.request.cf?.postalCode,
+    };
+
+    let originRegion: string = 'unknown';
+    try {
+      const res = await fetch('https://cloudflare-dns.com/dns-query', {
+        method: 'OPTIONS',
+      });
+      originRegion = res.headers.get('cf-ray')!.split('-')[1]; // LHR
+    } catch (e) {
+      console.error(e);
+    }
+
+    const serverInfo = {
+      region: originRegion,
+    };
+
+    const rendered = Mustache.render(indexTmpl, {
+      clientInfo: JSON.stringify(clientInfo, null, 2),
+      serverInfo: JSON.stringify(serverInfo, null, 2),
+    });
+    return new Response(rendered, {
       headers: {
         'Content-Type': 'text/html',
       },
