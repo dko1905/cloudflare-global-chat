@@ -8,6 +8,12 @@
     <script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
     <script src="https://unpkg.com/hyperscript.org@0.9.13"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      summary {
+        display: flex;
+        cursor: pointer;
+      }
+    </style>
 
     <link rel="manifest" href="manifest.json" />
   </head>
@@ -16,19 +22,8 @@
     <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-md">
       <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">Global Chat</h1>
       <p class="text-gray-600 text-center mb-6">Built using a CloudFlare edge function and a distributed MQTT cluster.</p>
-      <div class="text-gray-800">
-        <p>Client info:</p>
-        <pre>
-{{ clientInfo }}
-        </pre>
-      </div>
-      <div class="text-gray-800 mb-6">
-        <p>Server/Edge info:</p>
-        <pre>
-{{ serverInfo }}
-        </pre>
-      </div>
 
+      <!-- CHAT BLOCK -->
       <div hx-ext="ws" ws-connect="/ws" class="flex flex-col">
         <a class="hidden" ws-send hx-trigger="every 35s" hx-vals='{ "type": "ping" }'></a>
         <ul id="chat_room" class="overflow-y-auto h-64 border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50" hx-swap-oob="afterbegin"></ul>
@@ -42,6 +37,19 @@
           <button type="submit" class="bg-blue-500 text-white rounded-r-lg px-4 hover:bg-blue-600 transition duration-200">Send</button>
         </form>
       </div>
+
+      <!-- INFO BLOCK -->
+      <details class="border border-gray-300 rounded-lg px-3 py-1 mb-4 bg-gray-50 mt-2">
+        <summary>Client / server info</summary>
+        <div class="text-gray-800">
+          <p class="font-bold">Client info</p>
+          <pre>{{ clientInfo }}</pre>
+        </div>
+        <div class="text-gray-800 mb-6">
+          <p class="font-bold">Server / edge info</p>
+          <pre>{{ serverInfo }}</pre>
+        </div>
+      </details>
     </div>
   </body>
 </html>
