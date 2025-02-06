@@ -13,6 +13,8 @@ import favicon from './static/favicon.ico';
 import manifestJson from './static/manifest.json';
 const manifest = JSON.stringify(manifestJson);
 
+let globalCount: number = 0;
+
 /**
  * Welcome to Cloudflare Workers! This is your first worker.
  *
@@ -50,9 +52,11 @@ class AppController {
       region: originRegion,
     };
 
+    globalCount += 1;
     const rendered = Mustache.render(indexTmpl, {
       clientInfo: JSON.stringify(clientInfo, null, 2),
       serverInfo: JSON.stringify(serverInfo, null, 2),
+      globalCount,
     });
     return new Response(rendered, {
       headers: {
