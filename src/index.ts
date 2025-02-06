@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { IPublishPacket } from 'mqtt';
 import mqtt from 'mqtt';
 import indexTmpl from './templates/index.html';
+import countTmpl from './templates/count.html';
 import Sha1 from 'crypto-js/sha1';
 import Base64 from 'crypto-js/enc-base64';
 import Mustache from 'mustache';
@@ -52,10 +53,21 @@ class AppController {
       region: originRegion,
     };
 
-    globalCount += 1;
     const rendered = Mustache.render(indexTmpl, {
       clientInfo: JSON.stringify(clientInfo, null, 2),
       serverInfo: JSON.stringify(serverInfo, null, 2),
+      globalCount,
+    });
+    return new Response(rendered, {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    });
+  }
+
+  async getCount(): Promise<Response> {
+    globalCount += 1;
+    const rendered = Mustache.render(countTmpl, {
       globalCount,
     });
     return new Response(rendered, {
@@ -129,6 +141,9 @@ class AppController {
       case '/':
         if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
         return this.getRoot();
+      case '/count':
+        if (!['GET', 'HEAD'].includes(this.request.method)) return this.get405();
+        return this.getCount();
       case '/ws':
         return this.getWs();
       case '/manifest.json':
